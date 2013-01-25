@@ -1,11 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"gpio"
-	"io/ioutil"
+	"gpio/scheduler"
 	"math/rand"
 	"net/http"
 	"os"
@@ -18,6 +17,8 @@ const (
 	OFF = gpio.LOW
 )
 
+var S *scheduler.Scheduler
+
 var gVerbose *bool
 
 func log(msg string, args ...interface{}) {
@@ -27,30 +28,26 @@ func log(msg string, args ...interface{}) {
 }
 
 func main() {
-	schedule := flag.String("s", "schedule.json", "\tSchedule, list of events")
+	schedule := flag.String("s", "db/schedule.json", "\tSchedule, list of events")
 	gVerbose = flag.Bool("v", false, "\t\tDisplay verbose debug messages.")
 	random := flag.Uint("r", 0, "\t\tLoad n random events for the schedule")
 	flag.Parse()
 
-	http.HandleFunc("/", webserv)
-	fmt.Println("Serving on port: 8080")
-	go http.ListenAndServe(":8080", nil)
-
-	log("Creating a new light controller...")
-	C := new(controller)
-	defer C.closeGPIOPins()
+	log("Creating a new event scheduler...")
+	S = scheduler.New()
+	defer S.CloseGPIOPins()
 	log("done\n")
 
 	log("Reading in the database...")
 	if *random != 0 {
 		rand.Seed(int64(time.Now().Second()))
-		C.generateRandomEvents(int(*random))
-		//err := C.saveSchedule(*schedule)
+		S.GenerateRandomEvents(int(*random))
+		//err := C.SaveSchedule(*schedule)
 		//if err != nil {
 		//	return
 		//}
 	} else {
-		err := C.loadSchedule(*schedule)
+		err := S.LoadSchedule(*schedule)
 		if err != nil {
 			return
 		}
@@ -58,7 +55,16 @@ func main() {
 	log("done\n")
 
 	log("Starting event queue manager\n")
-	go C.manageEventQueue()
+	go S.ManageEventQueue()
+
+	http.HandleFunc("/", indexHandler)
+	http.HandleFunc("/edit/", editHandler)
+	http.HandleFunc("/event/", eventHandler)
+	http.HandleFunc("/floor/", floorHandler)
+	http.HandleFunc("/login/", loginHandler)
+	http.HandleFunc("/schedule/", scheduleHandler)
+	go http.ListenAndServe(":8080", nil)
+	fmt.Println("Serving on port: 8080")
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt)
