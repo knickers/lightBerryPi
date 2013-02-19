@@ -18,7 +18,6 @@ const (
 )
 
 var S *scheduler.Scheduler
-
 var gVerbose *bool
 
 func log(msg string, args ...interface{}) {
@@ -30,7 +29,7 @@ func log(msg string, args ...interface{}) {
 func main() {
 	schedule := flag.String("s", "db/schedule.json", "\tSchedule, list of events")
 	gVerbose = flag.Bool("v", false, "\t\tDisplay verbose debug messages.")
-	random := flag.Uint("r", 0, "\t\tLoad n random events for the schedule")
+	random := flag.Int("r", 0, "\t\tLoad n random events for the schedule")
 	flag.Parse()
 
 	log("Creating a new event scheduler...")
@@ -39,9 +38,9 @@ func main() {
 	log("done\n")
 
 	log("Reading in the database...")
-	if *random != 0 {
+	if *random > 0 {
 		rand.Seed(int64(time.Now().Second()))
-		S.GenerateRandomEvents(int(*random))
+		S.GenerateRandomEvents(*random)
 		//err := C.SaveSchedule(*schedule)
 		//if err != nil {
 		//	return
