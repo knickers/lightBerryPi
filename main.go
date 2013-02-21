@@ -6,6 +6,7 @@ import (
 	"gpio"
 	"gpio/scheduler"
 	"math/rand"
+	"msg"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,26 +19,19 @@ const (
 )
 
 var S *scheduler.Scheduler
-var gVerbose *bool
-
-func log(msg string, args ...interface{}) {
-	if *gVerbose {
-		fmt.Printf(msg, args...)
-	}
-}
 
 func main() {
-	schedule := flag.String("s", "db/schedule.json", "\tSchedule, list of events")
-	gVerbose = flag.Bool("v", false, "\t\tDisplay verbose debug messages.")
+	msg.Verbose = flag.Bool("v", false, "\t\tDisplay verbose debug messages.")
+	schedule := flag.String("s", "db/schedule.json", "Schedule list of events")
 	random := flag.Int("r", 0, "\t\tLoad n random events for the schedule")
 	flag.Parse()
 
-	log("Creating a new event scheduler...")
+	msg.Log("Creating a new event scheduler...")
 	S = scheduler.New()
 	defer S.CloseGPIOPins()
-	log("done\n")
+	msg.Log("done\n")
 
-	log("Reading in the database...")
+	msg.Log("Reading in the database...")
 	if *random > 0 {
 		rand.Seed(int64(time.Now().Second()))
 		S.GenerateRandomEvents(*random)
@@ -51,9 +45,8 @@ func main() {
 			return
 		}
 	}
-	log("done\n")
+	msg.Log("done\n")
 
-	log("Starting event queue manager\n")
 	go S.ManageEventQueue()
 
 	http.HandleFunc("/", indexHandler)
