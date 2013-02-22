@@ -35,7 +35,7 @@ func main() {
 	if *random > 0 {
 		rand.Seed(int64(time.Now().Second()))
 		S.GenerateRandomEvents(*random)
-		//err := C.SaveSchedule(*schedule)
+		//err := S.SaveSchedule(*schedule)
 		//if err != nil {
 		//	return
 		//}
