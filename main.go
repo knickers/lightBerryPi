@@ -4,12 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"gpio"
-	"gpio/scheduler"
 	"math/rand"
 	"msg"
 	"net/http"
 	"os"
 	"os/signal"
+	"scheduler"
 	"time"
 )
 
@@ -18,7 +18,51 @@ const (
 	OFF = gpio.LOW
 )
 
-var S *scheduler.Scheduler
+type program struct {
+	s    *scheduler.Scheduler
+	pins []gpio.Pin
+}
+
+func (P *program) hasPin(pin int) int {
+	for i, p := range P.pins {
+		if p.GetNumber() == uint(pin) {
+			return i
+		}
+	}
+	return -1
+}
+
+func (P *program) setPinState(pin int, state gpio.State) error {
+	i := P.hasPin(pin)
+
+	// If this pin doesn't exist yet, create a new one
+	if i == -1 {
+		p, err := gpio.NewPin(uint(pin), gpio.OUTPUT)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		P.pins = append(P.pins, *p)
+		i = len(P.pins) - 1
+	}
+
+	P.pins[i].SetState(state)
+	return nil
+}
+
+func (P *program) closePins() {
+	for _, p := range P.pins {
+		p.Close()
+	}
+}
+
+type event struct {
+	e     *scheduler.Event
+	pins  []int
+	state gpio.State
+}
+
+var P *program
 
 func main() {
 	msg.Verbose = flag.Bool("v", false, "\t\tDisplay verbose debug messages.")
@@ -27,27 +71,28 @@ func main() {
 	flag.Parse()
 
 	msg.Log("Creating a new event scheduler...")
-	S = scheduler.New()
-	defer S.CloseGPIOPins()
+	P = new(program)
+	P.s = scheduler.New()
+	defer P.closePins()
 	msg.Log("done\n")
 
 	msg.Log("Reading in the database...")
 	if *random > 0 {
 		rand.Seed(int64(time.Now().Second()))
-		S.GenerateRandomEvents(*random)
-		//err := S.SaveSchedule(*schedule)
+		P.s.GenerateRandomEvents(*random)
+		//err := P.SaveSchedule(*schedule)
 		//if err != nil {
 		//	return
 		//}
 	} else {
-		err := S.LoadSchedule(*schedule)
+		err := P.s.LoadSchedule(*schedule)
 		if err != nil {
 			return
 		}
 	}
 	msg.Log("done\n")
 
-	go S.ManageEventQueue()
+	go P.s.ManageEventQueue()
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/edit/", editHandler)
