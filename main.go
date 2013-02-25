@@ -18,9 +18,15 @@ const (
 	OFF = gpio.LOW
 )
 
+type extention struct {
+	Pins  []int
+	State gpio.State
+}
+
 type program struct {
-	s    *scheduler.Scheduler
-	pins []gpio.Pin
+	sched *scheduler.Scheduler
+	pins  []gpio.Pin
+	ios   map[int]xtention
 }
 
 func (P *program) hasPin(pin int) int {
@@ -56,10 +62,33 @@ func (P *program) closePins() {
 	}
 }
 
-type event struct {
-	e     *scheduler.Event
-	pins  []int
-	state gpio.State
+func (P *program) randomHelper(e scheduler.Event) {
+	// up to eight pins per event
+	n := rand.Int()%8 + 1
+	var pins []int
+	for j := 0; j < n; j++ {
+		pins = append(pins, rand.Int()%8)
+	}
+	st := gpio.State(rand.Int() % 2)
+	P.ios[e.Id()] = extention{pins, st}
+}
+
+func (P *program) loadHelper(e scheduler.Event) {
+}
+
+func (P *program) saveHelper(e scheduler.Event) {
+}
+
+func (P *program) makeEventAction(pins []int, state gpio.State) func() error {
+	return func() error {
+		for _, pin := range pins {
+			err := P.setPinState(pin, state)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 var P *program
@@ -72,27 +101,27 @@ func main() {
 
 	msg.Log("Creating a new event scheduler...")
 	P = new(program)
-	P.s = scheduler.New()
+	P.sched = scheduler.New()
 	defer P.closePins()
 	msg.Log("done\n")
 
 	msg.Log("Reading in the database...")
 	if *random > 0 {
 		rand.Seed(int64(time.Now().Second()))
-		P.s.GenerateRandomEvents(*random)
-		//err := P.SaveSchedule(*schedule)
+		P.sched.GenerateRandomEvents(*random, nil/*P.randomHelper*/)
+		//err := P.sched.SaveSchedule(*schedule, P.saveHelper)
 		//if err != nil {
 		//	return
 		//}
 	} else {
-		err := P.s.LoadSchedule(*schedule)
+		err := P.sched.LoadSchedule(*schedule, nil/*P.loadHelper*/)
 		if err != nil {
 			return
 		}
 	}
 	msg.Log("done\n")
 
-	go P.s.ManageEventQueue()
+	go P.sched.ManageEventQueue()
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/edit/", editHandler)
