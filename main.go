@@ -26,7 +26,7 @@ type extention struct {
 type program struct {
 	sched *scheduler.Scheduler
 	pins  []gpio.Pin
-	ios   map[int]xtention
+	ios   map[int]extention
 }
 
 func (P *program) hasPin(pin int) int {
