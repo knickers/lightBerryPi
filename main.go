@@ -62,21 +62,36 @@ func (P *program) closePins() {
 	}
 }
 
-func (P *program) randomHelper(e scheduler.Event) {
-	// up to eight pins per event
-	n := rand.Int()%8 + 1
-	var pins []int
-	for j := 0; j < n; j++ {
-		pins = append(pins, rand.Int()%8)
+func (P *program) randomHelper() func(*scheduler.Event) {
+	return func(event *scheduler.Event) {
+		msg.Log("    Random pins for: ", event)
+		n := rand.Int()%8 + 1 // eight pins on the raspberry pi
+		var pins []int
+		for j := 0; j < n; j++ {
+			pins = append(pins, rand.Int()%8)
+		}
+		st := gpio.State(rand.Int() % 2)
+
+		msg.Logln(" State:", st.String(), "Pins:", pins)
+		P.ios[event.Id()] = extention{pins, st}
+		//event.Action = P.makeEventAction(pins, st)
 	}
-	st := gpio.State(rand.Int() % 2)
-	P.ios[e.Id()] = extention{pins, st}
 }
 
-func (P *program) loadHelper(e scheduler.Event) {
+func (P *program) loadHelper() func(*scheduler.Event, interface{}) {
+	return func(event *scheduler.Event, data interface{}) {
+		/*
+		pins := extention(data)
+		P.ios[event.Id()] = pins
+		event.Action = P.makeEventAction(pins.Pins, pins.State)
+		*/
+	}
 }
 
-func (P *program) saveHelper(e scheduler.Event) {
+func (P *program) saveHelper() func(scheduler.Event) interface{} {
+	return func(event scheduler.Event) interface{} {
+		return P.ios[event.Id()]
+	}
 }
 
 func (P *program) makeEventAction(pins []int, state gpio.State) func() error {
@@ -102,24 +117,25 @@ func main() {
 	msg.Log("Creating a new event scheduler...")
 	P = new(program)
 	P.sched = scheduler.New()
+	P.ios = make(map[int]extention)
 	defer P.closePins()
-	msg.Log("done\n")
+	msg.Logln("done")
 
-	msg.Log("Reading in the database...")
+	msg.Logln("Reading in the database...")
 	if *random > 0 {
 		rand.Seed(int64(time.Now().Second()))
-		P.sched.GenerateRandomEvents(*random, nil/*P.randomHelper*/)
-		//err := P.sched.SaveSchedule(*schedule, P.saveHelper)
+		P.sched.GenerateRandomEvents(*random, P.randomHelper())
+		//err := P.sched.SaveSchedule(*schedule, P.saveHelper())
 		//if err != nil {
 		//	return
 		//}
 	} else {
-		err := P.sched.LoadSchedule(*schedule, nil/*P.loadHelper*/)
+		err := P.sched.LoadSchedule(*schedule, P.loadHelper())
 		if err != nil {
 			return
 		}
 	}
-	msg.Log("done\n")
+	msg.Logln("done")
 
 	go P.sched.ManageEventQueue()
 
