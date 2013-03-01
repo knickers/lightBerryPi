@@ -2,45 +2,63 @@ package main
 
 import (
 	"fmt"
-	//"html/template"
+	"html/template"
 	//"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 var lengths = map[string] int {
 	"index":    len("/"),
-	"edit":     len("/edit/"),
-	"plan":     len("/plan/"),
 	"event":    len("/event/"),
-	"login":    len("/login/"),
-	"schedule": len("/schedule/"),
+}
+
+var templates = template.Must(template.ParseFiles(
+	"template/header.html",
+	"template/footer.html",
+	"template/event.html",
+	"template/event-view.html",
+	"template/event-edit.html",
+))
+
+func renderTemplate(w http.ResponseWriter, title string) {
+	err := templates.ExecuteTemplate(w, title + ".html", nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the home page %d", lengths["index"])
+	renderTemplate(w, "header")
+	fmt.Fprintf(w, "<h1>Welcome to the home page %d</h1>", lengths["index"])
 	// list the buildings available
 	// sublist the plans available
+	renderTemplate(w, "footer")
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[lengths["edit"]:]
-	fmt.Fprintf(w, "Welcome to the edit %s page", title)
-	// switch for what they are trying to edit
-	switch title {
-	case "building":
-		fmt.Fprintf(w, "ho")
-	case "floor":
-		fmt.Fprintf(w, "hum")
-	case "zone":
-		fmt.Fprintf(w, "ha")
-	case "event":
-		fmt.Fprintf(w, "he")
-	default:
-		fmt.Fprintf(w, "no")
+func eventHandler(w http.ResponseWriter, r *http.Request) {
+	args := strings.Split(r.URL.Path[lengths["event"]+1:], "/")
+	title := ""
+	if len(args) == 1 {
+		title = args[0]
 	}
-	// building? floor? zone? event?
+	if len(args) > 1 {
+		args = args[1:]
+	}
+	renderTemplate(w, "header")
+	fmt.Fprintf(w, "Welcome to the event %s page", args)
+	fmt.Fprintf(w, "Welcome to the event %s page", title)
+
+	switch title {
+	case "edit":
+		renderTemplate(w, "event-edit")
+	default:
+		renderTemplate(w, "event")
+	}
+	renderTemplate(w, "footer")
 }
 
+/*
 func floorHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the floor plan page %d", lengths["plan"])
 }
@@ -56,3 +74,4 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func scheduleHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the schedule page %d", lengths["schedule"])
 }
+*/

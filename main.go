@@ -140,11 +140,7 @@ func main() {
 	go P.sched.ManageEventQueue()
 
 	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/edit/", editHandler)
 	http.HandleFunc("/event/", eventHandler)
-	http.HandleFunc("/floor/", floorHandler)
-	http.HandleFunc("/login/", loginHandler)
-	http.HandleFunc("/schedule/", scheduleHandler)
 	go http.ListenAndServe(":8080", nil)
 	fmt.Println("Serving on port: 8080")
 
