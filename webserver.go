@@ -17,6 +17,9 @@ var templates = template.Must(template.ParseFiles(
 	"template/header.html",
 	"template/footer.html",
 	"template/event.html",
+	"template/_event-list-begin.html",
+	"template/_event-list-event.html",
+	"template/_event-list-end.html",
 	"template/event-view.html",
 	"template/event-edit.html",
 ))
@@ -37,24 +40,30 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func eventHandler(w http.ResponseWriter, r *http.Request) {
-	args := strings.Split(r.URL.Path[lengths["event"]+1:], "/")
+	args := strings.Split(r.URL.Path[lengths["event"]:], "/")
 	title := ""
-	if len(args) == 1 {
+	if len(args) > 0 {
 		title = args[0]
-	}
-	if len(args) > 1 {
-		args = args[1:]
+		if len(args) > 1 {
+			args = args[1:]
+		} else {
+			args = nil
+		}
 	}
 	renderTemplate(w, "header")
-	fmt.Fprintf(w, "Welcome to the event %s page", args)
-	fmt.Fprintf(w, "Welcome to the event %s page", title)
+	fmt.Fprintf(w, "Welcome to the event %s page, %s", title, args)
 
 	switch title {
 	case "edit":
 		renderTemplate(w, "event-edit")
 	default:
-		renderTemplate(w, "event")
+		renderTemplate(w, "_event-list-begin")
+		for i, e := range P.ios {
+			renderTemplate(w, "_event-list-event")
+		}
+		renderTemplate(w, "_event-list-end")
 	}
+
 	renderTemplate(w, "footer")
 }
 
